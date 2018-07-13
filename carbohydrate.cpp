@@ -9,7 +9,7 @@ carboDetector::carboDetector(){
 
     foods["batata"] = std::make_pair(0.2, 1); //relacao e densidade
     foods["arroz"] = std::make_pair(0.165, 1);
-    foods["feijao"] = std::make_pair(0.165, 1);
+    foods["feijao"] = std::make_pair(0.165, 0.75);
     foods["banana"] = std::make_pair(0.23, 1);
     foods["abobora"] = std::make_pair(0.2, 1);
     foods["lasanha"] = std::make_pair(0.12, 1);
@@ -23,6 +23,7 @@ carboDetector::carboDetector(){
 
 
     totalCarbo = 0;
+    foodFeatures.clear();
 
 
     cout << "Clique em cada regiao que representa uma comida e indique qual é o alimento" << endl;
@@ -42,25 +43,26 @@ void carboDetector::saveRegionPixeis(int regionPixeis, string name){
     if(it == foods.end())
         cout << "Nome do alimento invalido" << endl;
     else{
-        cout << regionPixeis << endl;
-        cout << it->second.first << endl;
+        foodNames.push_back(name);
         foodFeatures.push_back(foodRegion(regionPixeis,it->second.first,it->second.second));
     }
 
 }
 
-int carboDetector::calculateCarbo(){
+float carboDetector::calculateCarbo(){
+
 
     float aux = 0;
     for(int i = 0; i < foodFeatures.size();i++){
         aux += (foodFeatures[i].density * foodFeatures[i].regionPixeis);
     }
     constant = totalWeigh/aux;
+    //cout << constant << ' ' << foodFeatures.size() << endl;
 
     for(int i = 0; i < foodFeatures.size();i++){
         foodFeatures[i].weigh = foodFeatures[i].density * foodFeatures[i].regionPixeis * constant;
         foodFeatures[i].carbo = foodFeatures[i].weigh * foodFeatures[i].relation;
-        cout << "Peso: " << foodFeatures[i].weigh << " Carbo: " << foodFeatures[i].carbo << endl;
+        cout << foodNames[i] << "  Peso: " << foodFeatures[i].weigh << " Carbo: " << foodFeatures[i].carbo << endl;
         totalCarbo += foodFeatures[i].carbo;
     }
 

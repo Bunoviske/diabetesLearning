@@ -45,6 +45,7 @@ clusterDetector::clusterDetector(){
 
 Mat clusterDetector::run(Mat plate){
     this->plate = plate;
+    cvtColor(this->cropImage(this->plate),this->gray,CV_BGR2GRAY);
     this->convertSrc = this->cropImage(this->filter());
     this->getFeatures();
     this->applyKmeans();
@@ -145,16 +146,16 @@ void clusterDetector::getNeighbours(Mat binary, int idx){
             count++;
         }
     }
-//    cout << endl << "Regiao " << idx << " tem vizinhos: " << flush;
-//    for (int j = 0; j < clusters[idx].neighbours.size(); j++){
-//        cout << clusters[idx].neighbours[j] << ' ' << flush;
-//    }
+    //    cout << endl << "Regiao " << idx << " tem vizinhos: " << flush;
+    //    for (int j = 0; j < clusters[idx].neighbours.size(); j++){
+    //        cout << clusters[idx].neighbours[j] << ' ' << flush;
+    //    }
 }
 
 void clusterDetector::checkPixelNeighbours(int newIdx, int idx){
 
     //so adiciona vizinhos novos se eles nao tiverem sido adicionados ja ou se for ruido
-    if (newIdx == idx || newIdx == -1 || newIdx == 50) return;
+    if (newIdx == idx || newIdx == -1 || newIdx == RUIDO) return;
     if (clusters[idx].neighbours.size() != 0){
         int cont = 0;
         for (int j = 0; j < clusters[idx].neighbours.size(); j++){
@@ -196,15 +197,12 @@ void clusterDetector::getNewClusters(Mat binary, int idx){
             if (data[j].val[0] != 0 && data[j].val[1] != 0 && data[j].val[2] != 0){
                 if (pointer[j] == idx){
                     if(dataBin[j] == 0){
-                        pointer[j] = 50; //ruido - nao pertence a nenhum grupo
+                        pointer[j] = RUIDO; //ruido - nao pertence a nenhum grupo
                     }
                 }
             }
         }
-
     }
-
-    //waitKey();
 }
 
 void clusterDetector::connectedComponents(Mat binary, int idx){
@@ -333,6 +331,7 @@ void clusterDetector::getMahalanobisFeatures(){
         pointsSumI[i] = 0;
     }
 
+    int cont = 0;
     for (int i=0; i<convertSrc.rows; i++) {
         // get the address of row j
         Vec3b* data = convertSrc.ptr<Vec3b>(i);
@@ -342,20 +341,23 @@ void clusterDetector::getMahalanobisFeatures(){
             // process each pixel ---------------------
             if (data[j].val[0] != 0 && data[j].val[1] != 0 && data[j].val[2] != 0){
                 int idx = pointer[j];
-                if (idx != 50){ //representa os ruidos filtrados
+                if (idx != RUIDO){ //representa os ruidos filtrados
 
                     //pega as features para realizar a distancia de mahalanobis
                     cv::Mat sample(1, 3, CV_32FC1);
                     sample.at<float>(0, 0) = data[j].val[0];
                     sample.at<float>(0, 1) = data[j].val[1];
                     sample.at<float>(0, 2) = data[j].val[2];
-                    //sample.at<float>(0, 3) = i; //i
-                    //sample.at<float>(0, 4) = j; //j
+                    //sample.at<float>(0, 3) = i; //i      //mudar tamanho do vetor sample logo acima!!!!
+                    //sample.at<float>(0, 4) = j; //j      //mudar tamanho do vetor sample logo acima!!!!
+                    //sample.at<float>(0, 3) = points[cont].val[5];
                     clusters[idx].clusterMat.push_back(sample);
-                    //para descobrir centro geometrico de cada uma
+
+                    //para descobrir centro geometrico de cada cluster
                     pointsSumI[idx] += i;
                     pointsSumJ[idx] += j;
                 }
+                cont++;
             }
         }
     }
@@ -365,11 +367,15 @@ void clusterDetector::getMahalanobisFeatures(){
         clusters[i].center.x = pointsSumJ[i]/clusters[i].clusterMat.rows;
         clusters[i].center.y = pointsSumI[i]/clusters[i].clusterMat.rows;
         clusters[i].numPixeis = clusters[i].clusterMat.rows;
+
     }
 }
 
 void clusterDetector::applyMerge(){
+
+
     getMahalanobisFeatures();
+
 
     Mat covar[Kupdated], mean[Kupdated];
 
@@ -431,18 +437,70 @@ int clusterDetector::getFinalLabels(){
         int* pointer = matLabels.ptr<int>(i);
         for (int j=0; j<matLabels.cols; j++) {
             //se for diferente de preto e de ruido, add o novo valor do label
-            if (pointer[j] != -1 && pointer[j] != 50) pointer[j] = clusters[pointer[j]].labelNumber;
+            if (pointer[j] != -1 && pointer[j] != RUIDO) pointer[j] = clusters[pointer[j]].labelNumber;
         }
     }
     return cont;
 }
 
+int clusterDetector::localBinaryPattern(int i, int j){
 
-void clusterDetector::getFeatures(){
-    //variavel 'points' contem as features para o kmeans
+    int radius = 1;
 
+    if(i < radius || i > gray.rows-1-radius || j < radius || j > gray.cols-1-radius){
+        return 0;
+    }
+
+    int lbpVec[8];
+
+    uchar* line1 = gray.ptr<uchar>(i-radius);
+    uchar* line2 = gray.ptr<uchar>(i);
+    uchar* line3 = gray.ptr<uchar>(i+radius);
+    int centro = (int)line2[j];
+
+    lbpVec[0] = (int)line1[j-radius] - centro >= 0 ? 1 : 0;
+    lbpVec[1] = (int)line1[j] - centro >= 0 ? 1 : 0;
+    lbpVec[2] = (int)line1[j+radius] - centro >= 0 ? 1 : 0;
+    lbpVec[3] = (int)line2[j+radius] - centro >= 0 ? 1 : 0;
+    lbpVec[4] = (int)line3[j+radius] - centro >= 0 ? 1 : 0;
+    lbpVec[5] = (int)line3[j] - centro >= 0 ? 1 : 0;
+    lbpVec[6] = (int)line3[j-radius] - centro >= 0 ? 1 : 0;
+    lbpVec[7] = (int)line2[j-radius] - centro >= 0 ? 1 : 0;
+
+    return (1*lbpVec[0] + 2*lbpVec[1] + 4*lbpVec[2] + 8*lbpVec[3] + 16*lbpVec[4] + 32*lbpVec[5] +
+            64*lbpVec[6] + 128*lbpVec[7]);
+
+}
+
+Mat clusterDetector::getTexture(){
     int nl= convertSrc.rows;
     int nc= convertSrc.cols;
+
+    Mat lbpMat = Mat(nl,nc,CV_8UC1);
+
+    for (int i=0; i<nl; i++) {
+        // get the address of row j
+        for (int j=0; j<nc; j++) {
+            // process each pixel ---------------------
+            int lbp = localBinaryPattern(i,j);
+            lbpMat.at<uchar>(i,j) = lbp;
+            //end of pixel processing ----------------
+        }
+    }
+    imshow("lbp", lbpMat);
+    return lbpMat;
+
+}
+
+void clusterDetector::getFeatures(){
+
+    //variavel 'points' contem as features para o kmeans
+
+    lbpMat = getTexture();
+
+    int nl = convertSrc.rows;
+    int nc = convertSrc.cols;
+
     for (int i=0; i<nl; i++) {
         // get the address of row j
         Vec3b* data = convertSrc.ptr<Vec3b>(i);
@@ -450,7 +508,26 @@ void clusterDetector::getFeatures(){
         for (int j=0; j<nc; j++) {
             // process each pixel ---------------------
             if (data[j].val[0] != 0 && data[j].val[1] != 0 && data[j].val[2] != 0){
-                points.push_back(Vec6f(data[j].val[0],data[j].val[1],data[j].val[2],i,j,0));
+
+                int histSize = 16;
+                float range[] = { 0, 256 } ;
+                const float* histRange = { range };
+                bool uniform = true; bool accumulate = false;
+                Mat textureHist;
+                Mat ROI = textureRoi(i,j);
+
+                //Compute the histogram
+                calcHist(&ROI, 1, 0, Mat(), textureHist, 1, &histSize, &histRange, uniform, accumulate );
+                transpose(textureHist,textureHist);
+
+                float dataFeat[3] = { (float)data[j].val[0],(float)data[j].val[1],(float)data[j].val[2],
+                                      //(float)i,(float)j };
+                                    };
+                cv::Mat features = cv::Mat(1, 3, CV_32F, dataFeat);
+                //hconcat(features,textureHist,features); // horizontal concatenation
+
+                points.push_back(features);
+
             }
             //end of pixel processing ----------------
 
@@ -458,8 +535,20 @@ void clusterDetector::getFeatures(){
     }
 }
 
+Mat clusterDetector::textureRoi(int i, int j){ //pega roi em torno do ponto da imagem texturizada
+    anchor roi;
+    int offset = 10;
+
+    roi.fi = i + offset <= lbpMat.rows-1 ? i + offset : lbpMat.rows-1;
+    roi.fj = j + offset <= lbpMat.cols-1 ? j + offset : lbpMat.cols-1;
+    roi.i = i - offset >= 0 ? i - offset : 0;
+    roi.j = j - offset >= 0 ? j - offset : 0;
+
+    return lbpMat(Rect(Point(roi.j,roi.i),Point(roi.fj,roi.fi)));
+}
+
 Mat clusterDetector::filter(){
-    Mat convertSrc = Mat::zeros(plate.size(), CV_8UC3);;
+    Mat convertSrc = Mat::zeros(plate.size(), CV_8UC3);
 
     cvtColor(plate, convertSrc,CV_BGR2Lab);
     medianBlur(convertSrc,convertSrc,7);
@@ -542,7 +631,7 @@ Mat clusterDetector::drawClusters(){
             // process each pixel ---------------------
             if (data[j].val[0] != 0 && data[j].val[1] != 0 && data[j].val[2] != 0){
                 int idx = pointer[j];
-                if (idx == 50){ //idx = 50 representa os ruidos filtrados
+                if (idx == RUIDO){ //idx = -2 representa os ruidos filtrados
                     data[j] = Vec3b(255,255,255);
                 }
                 else{

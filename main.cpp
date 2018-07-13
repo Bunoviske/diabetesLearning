@@ -4,12 +4,13 @@
 
 void CallBackFunc(int event, int x, int y, int flags, void*objeto);
 
+carboDetector carbo; //global para ser visto pela funcao de callback
+
 int main(int argc, char** argv)
 {
     VideoCapture cap;
     ellipseDetector ellipse;
     clusterDetector cluster;
-    carboDetector carbo;
 
     // Le imagem/video do terminal
     if (argc > 1){
@@ -23,26 +24,34 @@ int main(int argc, char** argv)
     }
 
     cap.read(db::src);
+    resize(db::src,db::src,Size(250,250));
 
     Mat plate = ellipse.run(db::src.clone());
 
-    cout << "Insira o peso total dos alimentos: " << endl;
-    cin >> carbo.totalWeigh;
+    //cout << "Insira o peso total dos alimentos: " << endl;
+    //cin >> carbo.totalWeigh;
 
     imshow("labels", cluster.run(plate));
 
     setMouseCallback("labels", CallBackFunc, &carbo);
 
-    waitKey();
+    while(1){
+        char c = waitKey();
+        //se desejar fechar video/streaming, apertar esc
+        if( (char)c == 27 ) //esc
+        {
+            break;
+        }
+    }
+
 
     cout << "Total de carboidrato: " << carbo.calculateCarbo() << endl;
     return 0;
 
 }
 
-void CallBackFunc(int event, int x, int y, int flags, void * objeto)
+void CallBackFunc(int event, int x, int y, int flags, void*objeto)
 {
-    carboDetector carbo = *((carboDetector*)objeto);
 
     if ( event == EVENT_FLAG_LBUTTON )
     {

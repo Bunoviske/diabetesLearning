@@ -8,7 +8,7 @@ struct foodRegion{
     float relation;
     float density;
     float weigh;
-    int carbo;
+    float carbo;
     foodRegion(int regionP, float carboRelation, float foodDensity){ //construtor
         regionPixeis = regionP;
         relation = carboRelation;
@@ -23,7 +23,7 @@ public:
     /*
      * Variaveis
      */
-    int totalWeigh;
+    float totalWeigh;
 
 
     /*
@@ -32,19 +32,21 @@ public:
 
     carboDetector();
     void saveRegionPixeis(int regionPixeis, string name);
-    int calculateCarbo();
+    float calculateCarbo();
 
 private:
 
     float constant;
-    int totalCarbo;
+    float totalCarbo;
+    std::map<string,pair<float,float>> foods;
+    vector<foodRegion> foodFeatures;
+    vector<string> foodNames;
+
 
     /*
      * Métodos
      */
 
-    std::map<string,pair<float,float>> foods;
-    vector<foodRegion> foodFeatures;
 
 
 
