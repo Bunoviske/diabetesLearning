@@ -16,23 +16,6 @@ typedef struct{
     int numPixeis;
 }region;
 
-struct kmeansFeatures{
-    Mat lbpHist;
-    float val0;
-    float val1;
-    float val2;
-    float i, j;
-    kmeansFeatures(Mat lbpHist, float val0, float val1, float val2, float i, float j){ //construtor
-        this->lbpHist = lbpHist;
-        this->val0 = val0;
-        this->val1 = val1;
-        this->val2 = val2;
-        this->i = i;
-        this->j = j;
-
-    }
-};
-
 
 class clusterDetector{
 public:
@@ -42,9 +25,8 @@ public:
 
 private:
 
-    Mat plate, convertSrc, matLabels, gray, lbpMat;
+    Mat plate, convertSrc, matLabels, grayPlate;
     vector<region> clusters; //cada feature é representada em uma coluna da matriz
-    //std::vector<Vec6f> points;
     Mat points;
     int Kupdated;
     //vector<Vec3b> colorTab;
@@ -57,9 +39,11 @@ private:
     Mat cropImage(Mat src);
     Mat drawClusters();
     void getFeatures();
-    Mat getTexture();
-    int localBinaryPattern(int i, int j);
-    Mat textureRoi(int i,int j);
+
+    Mat getLBPTexture();
+    Mat getGaborTexture();
+    void localBinaryPattern(Mat& src, Mat& dst, int radius, int neighbors);
+    Mat textureRoi(int i,int j,Mat image);
 
     void applyKmeans();
     void applyMerge();

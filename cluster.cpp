@@ -45,7 +45,7 @@ clusterDetector::clusterDetector(){
 
 Mat clusterDetector::run(Mat plate){
     this->plate = plate;
-    cvtColor(this->cropImage(this->plate),this->gray,CV_BGR2GRAY);
+    cvtColor(this->cropImage(this->plate),this->grayPlate,CV_BGR2GRAY);
     this->convertSrc = this->cropImage(this->filter());
     this->getFeatures();
     this->applyKmeans();
@@ -344,13 +344,17 @@ void clusterDetector::getMahalanobisFeatures(){
                 if (idx != RUIDO){ //representa os ruidos filtrados
 
                     //pega as features para realizar a distancia de mahalanobis
-                    cv::Mat sample(1, 3, CV_32FC1);
-                    sample.at<float>(0, 0) = data[j].val[0];
-                    sample.at<float>(0, 1) = data[j].val[1];
-                    sample.at<float>(0, 2) = data[j].val[2];
+//                    cv::Mat sample(1, 5, CV_32FC1);
+//                    sample.at<float>(0, 0) = data[j].val[0];
+//                    sample.at<float>(0, 1) = data[j].val[1];
+//                    sample.at<float>(0, 2) = data[j].val[2];
                     //sample.at<float>(0, 3) = i; //i      //mudar tamanho do vetor sample logo acima!!!!
                     //sample.at<float>(0, 4) = j; //j      //mudar tamanho do vetor sample logo acima!!!!
                     //sample.at<float>(0, 3) = points[cont].val[5];
+
+                    // exclui as features i e j na hora de atribuir mahalanobis features!
+                    Mat sample = points.colRange(2,points.cols).rowRange(cont,cont+1);
+
                     clusters[idx].clusterMat.push_back(sample);
 
                     //para descobrir centro geometrico de cada cluster
@@ -395,15 +399,6 @@ void clusterDetector::applyMerge(){
                 //cout << "Junção das regiões " << i << " e " << clusters[i].neighbours[j] << endl;
             }
         }
-        //        for(int j = 0; j < Kupdated; j++){
-        //            if(i!=j){
-        //                invert(covar[i],invertCovar1, DECOMP_SVD);
-        //                invert(covar[j],invertCovar2, DECOMP_SVD);
-        //                if (Mahalanobis(mean[i],mean[j],invertCovar1 + invertCovar2) < 0.1){
-        //                    cout << "Junção das regiões " << i << " e " << j << endl;
-        //                }
-        //            }
-        //        }
     }
 
     //modifica matLabels com as novas regioes unidas
@@ -443,60 +438,77 @@ int clusterDetector::getFinalLabels(){
     return cont;
 }
 
-int clusterDetector::localBinaryPattern(int i, int j){
 
-    int radius = 1;
-
-    if(i < radius || i > gray.rows-1-radius || j < radius || j > gray.cols-1-radius){
-        return 0;
-    }
-
-    int lbpVec[8];
-
-    uchar* line1 = gray.ptr<uchar>(i-radius);
-    uchar* line2 = gray.ptr<uchar>(i);
-    uchar* line3 = gray.ptr<uchar>(i+radius);
-    int centro = (int)line2[j];
-
-    lbpVec[0] = (int)line1[j-radius] - centro >= 0 ? 1 : 0;
-    lbpVec[1] = (int)line1[j] - centro >= 0 ? 1 : 0;
-    lbpVec[2] = (int)line1[j+radius] - centro >= 0 ? 1 : 0;
-    lbpVec[3] = (int)line2[j+radius] - centro >= 0 ? 1 : 0;
-    lbpVec[4] = (int)line3[j+radius] - centro >= 0 ? 1 : 0;
-    lbpVec[5] = (int)line3[j] - centro >= 0 ? 1 : 0;
-    lbpVec[6] = (int)line3[j-radius] - centro >= 0 ? 1 : 0;
-    lbpVec[7] = (int)line2[j-radius] - centro >= 0 ? 1 : 0;
-
-    return (1*lbpVec[0] + 2*lbpVec[1] + 4*lbpVec[2] + 8*lbpVec[3] + 16*lbpVec[4] + 32*lbpVec[5] +
-            64*lbpVec[6] + 128*lbpVec[7]);
-
-}
-
-Mat clusterDetector::getTexture(){
-    int nl= convertSrc.rows;
-    int nc= convertSrc.cols;
-
-    Mat lbpMat = Mat(nl,nc,CV_8UC1);
-
-    for (int i=0; i<nl; i++) {
-        // get the address of row j
-        for (int j=0; j<nc; j++) {
-            // process each pixel ---------------------
-            int lbp = localBinaryPattern(i,j);
-            lbpMat.at<uchar>(i,j) = lbp;
-            //end of pixel processing ----------------
+void clusterDetector::localBinaryPattern(Mat& src, Mat& dst, int radius, int neighbors) {
+    neighbors = max(min(neighbors,31),1); // set bounds...
+    // Note: alternatively you can switch to the new OpenCV Mat_
+    // type system to define an unsigned int matrix... I am probably
+    // mistaken here, but I didn't see an unsigned int representation
+    // in OpenCV's classic typesystem...
+    dst = Mat::zeros(src.rows-2*radius, src.cols-2*radius, CV_32SC1);
+    for(int n=0; n<neighbors; n++) {
+        // sample points
+        float x = static_cast<float>(radius) * cos(2.0*M_PI*n/static_cast<float>(neighbors));
+        float y = static_cast<float>(radius) * -sin(2.0*M_PI*n/static_cast<float>(neighbors));
+        // relative indices
+        int fx = static_cast<int>(floor(x));
+        int fy = static_cast<int>(floor(y));
+        int cx = static_cast<int>(ceil(x));
+        int cy = static_cast<int>(ceil(y));
+        // fractional part
+        float ty = y - fy;
+        float tx = x - fx;
+        // set interpolation weights
+        float w1 = (1 - tx) * (1 - ty);
+        float w2 =      tx  * (1 - ty);
+        float w3 = (1 - tx) *      ty;
+        float w4 =      tx  *      ty;
+        // iterate through your data
+        for(int i=radius; i < src.rows-radius;i++) {
+            for(int j=radius;j < src.cols-radius;j++) {
+                float t = w1*src.at<uchar>(i+fy,j+fx) + w2*src.at<uchar>(i+fy,j+cx) + w3*src.at<uchar>(i+cy,j+fx) + w4*src.at<uchar>(i+cy,j+cx);
+                // we are dealing with floating point precision, so add some little tolerance
+                dst.at<unsigned int>(i-radius,j-radius) += ((t > src.at<uchar>(i,j)) && (abs(t-src.at<uchar>(i,j)) > std::numeric_limits<float>::epsilon())) << n;
+            }
         }
     }
-    imshow("lbp", lbpMat);
-    return lbpMat;
+}
+
+Mat clusterDetector::getLBPTexture(){
+
+    Mat lbp;
+    int radius = 3; int neighbours = 10; //3 10   ---- 2 8
+    localBinaryPattern(grayPlate,lbp,radius,neighbours);
+    normalize(lbp,lbp,0,255,CV_MINMAX);
+    lbp.convertTo(lbp,CV_8UC1);
+    imshow("lbppppp",lbp);
+    return lbp;
 
 }
+
+Mat clusterDetector::getGaborTexture(){
+
+    Mat gray_f, gabor;
+    grayPlate.convertTo(gray_f,CV_32F);
+    int kernel_size = 11;
+    double sig = 6, theta = 0, lambda = 30.0, gama = 0.5, psi = 0;
+    cv::Mat kernel = cv::getGaborKernel(cv::Size(kernel_size, kernel_size), sig, theta, lambda, gama, psi);
+    cv::filter2D(gray_f, gabor, CV_32F, kernel);
+
+    normalize(gabor,gabor,0,255,CV_MINMAX);
+    gabor.convertTo(gabor,CV_8UC1);
+    imshow("k",kernel);
+    imshow("d",gabor);
+    return gabor;
+}
+
 
 void clusterDetector::getFeatures(){
 
     //variavel 'points' contem as features para o kmeans
 
-    lbpMat = getTexture();
+    Mat lbpMat = getLBPTexture();
+    Mat gabor = getGaborTexture();
 
     int nl = convertSrc.rows;
     int nc = convertSrc.cols;
@@ -514,17 +526,22 @@ void clusterDetector::getFeatures(){
                 const float* histRange = { range };
                 bool uniform = true; bool accumulate = false;
                 Mat textureHist;
-                Mat ROI = textureRoi(i,j);
+                Mat ROI = textureRoi(i,j, lbpMat);
 
                 //Compute the histogram
                 calcHist(&ROI, 1, 0, Mat(), textureHist, 1, &histSize, &histRange, uniform, accumulate );
                 transpose(textureHist,textureHist);
 
-                float dataFeat[3] = { (float)data[j].val[0],(float)data[j].val[1],(float)data[j].val[2],
-                                      //(float)i,(float)j };
-                                    };
-                cv::Mat features = cv::Mat(1, 3, CV_32F, dataFeat);
-                //hconcat(features,textureHist,features); // horizontal concatenation
+                const int FeatSize = 6;
+
+                //vetor de features que representa a posicao i,j e os valores cieLAB
+                float dataFeat[FeatSize] = {(float)i,(float)j,
+                                            (float)data[j].val[0],(float)data[j].val[1],(float)data[j].val[2],
+                                            //(float)gabor.at<uchar>(i,j) //gabor feature
+                                           };
+
+                cv::Mat features = cv::Mat(1, FeatSize, CV_32F, dataFeat);
+                hconcat(features,textureHist,features); // lbp histogram feature!!!
 
                 points.push_back(features);
 
@@ -535,16 +552,16 @@ void clusterDetector::getFeatures(){
     }
 }
 
-Mat clusterDetector::textureRoi(int i, int j){ //pega roi em torno do ponto da imagem texturizada
+Mat clusterDetector::textureRoi(int i, int j, Mat image){ //pega roi em torno do ponto da imagem texturizada
     anchor roi;
-    int offset = 10;
+    int offset = 10; // 5 - 10
 
-    roi.fi = i + offset <= lbpMat.rows-1 ? i + offset : lbpMat.rows-1;
-    roi.fj = j + offset <= lbpMat.cols-1 ? j + offset : lbpMat.cols-1;
+    roi.fi = i + offset <= image.rows-1 ? i + offset : image.rows-1;
+    roi.fj = j + offset <= image.cols-1 ? j + offset : image.cols-1;
     roi.i = i - offset >= 0 ? i - offset : 0;
     roi.j = j - offset >= 0 ? j - offset : 0;
 
-    return lbpMat(Rect(Point(roi.j,roi.i),Point(roi.fj,roi.fi)));
+    return image(Rect(Point(roi.j,roi.i),Point(roi.fj,roi.fi)));
 }
 
 Mat clusterDetector::filter(){
