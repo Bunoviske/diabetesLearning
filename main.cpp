@@ -28,8 +28,8 @@ int main(int argc, char** argv)
 
     Mat plate = ellipse.run(db::src.clone());
 
-    //cout << "Insira o peso total dos alimentos: " << endl;
-    //cin >> carbo.totalWeigh;
+    cout << "Insira o peso total dos alimentos: " << endl;
+    cin >> carbo.totalWeigh;
 
     imshow("labels", cluster.run(plate));
 

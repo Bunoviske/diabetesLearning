@@ -29,7 +29,7 @@ private:
     vector<region> clusters; //cada feature é representada em uma coluna da matriz
     Mat points;
     int Kupdated;
-    //vector<Vec3b> colorTab;
+    vector<Vec3b> colorTab;
 
 
     /*

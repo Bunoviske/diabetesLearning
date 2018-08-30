@@ -1,45 +1,46 @@
 #include "cluster.h"
 
 //K = 18
-Vec3b colorTab[] =
-{
+//Vec3b colorTab[] =
+//{
 
-    Vec3b(0, 0, 255),
-    Vec3b(0,255,0),
-    Vec3b(255, 0, 0),
+//    Vec3b(0, 0, 255),
+//    Vec3b(0,255,0),
+//    Vec3b(255, 0, 0),
 
-    Vec3b(255,0,255),
-    Vec3b(0,255,255),
-    Vec3b(255,255,0),
+//    Vec3b(255,0,255),
+//    Vec3b(0,255,255),
+//    Vec3b(255,255,0),
 
-    Vec3b(255,100,100),
-    Vec3b(100,0,255),
-    Vec3b(100,255,0),
-    Vec3b(255,0,100),
+//    Vec3b(255,100,100),
+//    Vec3b(100,0,255),
+//    Vec3b(100,255,0),
+//    Vec3b(255,0,100),
 
-    Vec3b(100,255,100),
-    Vec3b(100,100,255),
-
-
-    Vec3b(255,255,100),
-    Vec3b(255,100,255),
-    Vec3b(100,255,255),
+//    Vec3b(100,255,100),
+//    Vec3b(100,100,255),
 
 
-    Vec3b(0,255,100),
-    Vec3b(255,100,0),
-    Vec3b(0,100,255),
+//    Vec3b(255,255,100),
+//    Vec3b(255,100,255),
+//    Vec3b(100,255,255),
 
-};
+
+//    Vec3b(0,255,100),
+//    Vec3b(255,100,0),
+//    Vec3b(0,100,255),
+
+//};
 
 
 clusterDetector::clusterDetector(){
     //construtor
-    //    RNG rng( 0xFFFFFFFF );
+    RNG rng( 0xFFFFFFFF );
 
-    //    for (int i = 0; i < K; i++){
-    //        colorTab.push_back(Vec3b((uchar)rng.uniform(0,255),(uchar)rng.uniform(0,255),(uchar)rng.uniform(0,255)));
-    //    }
+    //100 cores diferentes
+    for (int i = 0; i < 100; i++){
+        colorTab.push_back(Vec3b((uchar)rng.uniform(0,255),(uchar)rng.uniform(0,255),(uchar)rng.uniform(0,255)));
+    }
     this->Kupdated = K;
 }
 
@@ -497,8 +498,8 @@ Mat clusterDetector::getGaborTexture(){
 
     normalize(gabor,gabor,0,255,CV_MINMAX);
     gabor.convertTo(gabor,CV_8UC1);
-    imshow("k",kernel);
-    imshow("d",gabor);
+//    imshow("k",kernel);
+//    imshow("d",gabor);
     return gabor;
 }
 
